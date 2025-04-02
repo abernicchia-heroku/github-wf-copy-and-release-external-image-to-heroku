@@ -1,0 +1,17 @@
+name: Manual docker build deploy
+
+on:
+  workflow_dispatch:
+    # Enables running the workflow manually
+    # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch
+
+jobs:
+  test-bash:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Print out runner env vars
+      shell: bash
+      run: |
+        echo "Print out runner env vars ..."
+        env
