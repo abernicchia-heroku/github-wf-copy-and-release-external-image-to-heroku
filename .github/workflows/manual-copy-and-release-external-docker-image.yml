@@ -10,12 +10,6 @@ jobs:
     runs-on: self-hosted
     
     steps:
-    # - name: Print out runner env vars
-    #   shell: bash
-    #   run: |
-    #     echo "Print out runner env vars ..."
-    #     env
-
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
@@ -73,25 +67,3 @@ jobs:
           -H "Content-Type: application/json" \
           -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
           -H "Authorization: Bearer $IN_HEROKU_API_KEY"
-
-
-
-
-    # - name: Checkout
-    #   uses: actions/checkout@v4
-    #   with:
-    #     sparse-checkout: |
-    #       /*
-    #       !.gitignore
-    #       !.github
-
-    # - name: Build, Push and Release a Docker container to Heroku.
-    #   uses: gonuit/heroku-docker-deploy@v1.3.3
-    #   with:
-    #     email: ${{ vars.HEROKU_EMAIL }}
-    #     heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-    #     heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
-    #     dockerfile_directory: ./
-    #     dockerfile_name: Dockerfile
-    #     docker_options: "--no-cache"
-    #     process_type: web
