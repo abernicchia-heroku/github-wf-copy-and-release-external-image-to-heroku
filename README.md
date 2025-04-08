@@ -1,5 +1,5 @@
 # GitHub Workflow to copy and release an external image to Heroku
-This is an example of GitHub Workflow that allows you to copy an  docker image from an external container registry to the Heroku one and deploy it. The workflow can be manually executed via GitHub (workflow_dispatch).
+This is an example of GitHub Workflow that allows you to copy a  docker image from an external container registry to the Heroku one and deploy it. The workflow can be manually executed via GitHub (workflow_dispatch).
 
 It can be easily converted to a GitHub Action and integrated into more complex workflows.
 
@@ -25,4 +25,4 @@ Configure the workflow with the following variables/secrets:
   - `DEST_CONTAINER_REGISTRY_PASSWORD` [required] Heroku container registry password (a Heroku auth key can be used). Set it on GitHub as secret
 
 ## Notes
-- Currently tested on Heroku cedar and with lunux/amd64 images only
+- Currently tested on Heroku cedar and with linux/amd64 images only
