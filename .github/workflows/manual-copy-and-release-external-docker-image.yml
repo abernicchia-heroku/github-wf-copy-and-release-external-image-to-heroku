@@ -1,0 +1,97 @@
+name: Manual copy and release external docker image to Heroku
+
+on:
+  workflow_dispatch:
+    # Enables running the workflow manually
+    # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch
+
+jobs:
+  copy-and-release-external-docker-image:
+    runs-on: self-hosted
+    
+    steps:
+    # - name: Print out runner env vars
+    #   shell: bash
+    #   run: |
+    #     echo "Print out runner env vars ..."
+    #     env
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+    
+    - name: Install crane
+      shell: bash
+      env:
+        IN_CRANE_VERSION: ${{ vars.CRANE_VERSION }}
+      run: |
+        go install "github.com/google/go-containerregistry/cmd/crane@$IN_CRANE_VERSION"
+
+    - name: Copy docker image and release it
+      shell: bash
+      env:
+        HEROKU_CONTAINER_REGISTRY_HOST: "registry.heroku.com"
+
+        IN_SRC_CONTAINER_REGISTRY_USER: ${{ secrets.SRC_CONTAINER_REGISTRY_USER }}
+        IN_SRC_CONTAINER_REGISTRY_HOST: ${{ vars.SRC_CONTAINER_REGISTRY_HOST }}
+        IN_SRC_CONTAINER_REGISTRY_PASSWORD: ${{ secrets.SRC_CONTAINER_REGISTRY_PASSWORD }}
+        IN_DEST_CONTAINER_REGISTRY_USER: ${{ secrets.DEST_CONTAINER_REGISTRY_USER }}
+        IN_DEST_CONTAINER_REGISTRY_PASSWORD: ${{ secrets.DEST_CONTAINER_REGISTRY_PASSWORD }}
+        IN_SRC_CONTAINER_REGISTRY_IMAGE_URL: ${{ vars.SRC_CONTAINER_REGISTRY_IMAGE_URL }}
+        IN_HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+        IN_HEROKU_APP_FORMATION_TYPE: ${{ vars.HEROKU_APP_FORMATION_TYPE }}
+        IN_IMAGE_PLATFORM_TYPE: ${{ vars.IMAGE_PLATFORM_TYPE }}
+        IN_HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      run: |
+        echo "logging into the source container registry user: $IN_SRC_CONTAINER_REGISTRY_USER host: $IN_SRC_CONTAINER_REGISTRY_HOST"
+        crane auth login -u "$IN_SRC_CONTAINER_REGISTRY_USER" -p "$IN_SRC_CONTAINER_REGISTRY_PASSWORD" "$IN_SRC_CONTAINER_REGISTRY_HOST"
+
+        echo "logging into the destination container registry (Heroku)"
+        crane auth login -u "$IN_DEST_CONTAINER_REGISTRY_USER" -p "$IN_DEST_CONTAINER_REGISTRY_PASSWORD" "$HEROKU_CONTAINER_REGISTRY_HOST"
+
+        echo "copying source image to destination container registry (Heroku)"
+        crane copy --platform "$IN_IMAGE_PLATFORM_TYPE" "$IN_SRC_CONTAINER_REGISTRY_HOST/$IN_SRC_CONTAINER_REGISTRY_IMAGE_URL" "$HEROKU_CONTAINER_REGISTRY_HOST/$IN_HEROKU_APP_NAME/$IN_HEROKU_APP_FORMATION_TYPE"
+
+        echo "retrieving destination image ID"
+        DOCKER_IMAGE_ID=$(crane manifest "$HEROKU_CONTAINER_REGISTRY_HOST/$IN_HEROKU_APP_NAME/$IN_HEROKU_APP_FORMATION_TYPE" | jq -er '.config.digest')
+
+        echo "releasing image ID: $DOCKER_IMAGE_ID to $IN_HEROKU_APP_NAME/$IN_HEROKU_APP_FORMATION_TYPE"
+
+        DATA=$(jq -n --arg json_type_arg "$IN_HEROKU_APP_FORMATION_TYPE" --arg json_docker_image_arg "$DOCKER_IMAGE_ID"  \
+        '{
+         "updates": [
+          {
+           "type": $json_type_arg,
+           "docker_image": $json_docker_image_arg
+          }
+        ]
+        }')
+
+        curl --retry 5 --fail-with-body -X PATCH "https://api.heroku.com/apps/$IN_HEROKU_APP_NAME/formation" \
+          -d "$DATA" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
+          -H "Authorization: Bearer $IN_HEROKU_API_KEY"
+
+
+
+
+    # - name: Checkout
+    #   uses: actions/checkout@v4
+    #   with:
+    #     sparse-checkout: |
+    #       /*
+    #       !.gitignore
+    #       !.github
+
+    # - name: Build, Push and Release a Docker container to Heroku.
+    #   uses: gonuit/heroku-docker-deploy@v1.3.3
+    #   with:
+    #     email: ${{ vars.HEROKU_EMAIL }}
+    #     heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+    #     heroku_app_name: ${{ vars.HEROKU_APP_NAME }}
+    #     dockerfile_directory: ./
+    #     dockerfile_name: Dockerfile
+    #     docker_options: "--no-cache"
+    #     process_type: web
